@@ -55,9 +55,10 @@ impl Nota {
     }
 
     pub fn etiqueta_intervalo(&self) -> String {
+        // El ícono de reloj ya está en el botón; el texto no repite el emoji
         match self.intervalo_segundos {
-            None => "⏰ Repetir".to_string(),
-            Some(s) => format!("⏰ {}", formatear_intervalo(s)),
+            None => "Repetir".to_string(),
+            Some(s) => formatear_intervalo(s),
         }
     }
 }

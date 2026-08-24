@@ -35,11 +35,11 @@ pub fn create_welcome_page() -> GtkBox {
     icon.set_pixel_size(64);
     welcome.append(&icon);
 
-    let title = Label::new(Some("Bienvenido a Mi Agenda"));
+    let title = Label::new(Some("Bienvenido a Remy"));
     title.add_css_class("title-1");
     welcome.append(&title);
 
-    let subtitle = Label::new(Some("Selecciona una nota o crea una nueva para comenzar"));
+    let subtitle = Label::new(Some("Empezá creando tu primera nota para comenzar"));
     subtitle.add_css_class("body");
     subtitle.add_css_class("dim-label");
     welcome.append(&subtitle);
@@ -176,10 +176,10 @@ fn build_editor_ui(content_area: &GtkBox, state: &Arc<Mutex<AppState>>, nota: cr
                             None => None,
                         };
                         n.actualizada = chrono::Local::now();
-                        format!("⏰ {}", match segs {
+                        match segs {
                             Some(s) => crate::model::formatear_intervalo(s),
                             None => "Repetir".to_string(),
-                        })
+                        }
                     } else {
                         return;
                     }

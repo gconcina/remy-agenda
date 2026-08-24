@@ -76,17 +76,72 @@ impl Tray for AgendaTray {
     }
 
     fn icon_name(&self) -> String {
-        "text-editor-symbolic".into()
+        // Sin nombre de tema: usamos nuestro pixmap propio (bombilla)
+        String::new()
+    }
+
+    /// Bombilla 24×24 generada por código (ARGB32): no depende del tema
+    /// de íconos del sistema, que puede no tener ninguna.
+    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
+        const S: i32 = 24;
+        let mut data = Vec::with_capacity((S * S * 4) as usize);
+
+        for y in 0..S {
+            for x in 0..S {
+                let dx = x - 12;
+                let dy = y - 10;
+                let d2 = dx * dx + dy * dy;
+
+                let (a, r, g, b);
+                if d2 <= 49 {
+                    // Vidrio de la bombilla (blanco)
+                    let hx = x - 9;
+                    let hy = y - 7;
+                    if hx * hx + hy * hy <= 4 {
+                        // Brillo superior-izquierdo
+                        (a, r, g, b) = (255, 255, 255, 255);
+                    } else if ((x == 10 || x == 14) && (11..=14).contains(&y))
+                        || (y == 11 && (10..=14).contains(&x))
+                    {
+                        // Filamento
+                        (a, r, g, b) = (255, 165, 165, 170);
+                    } else {
+                        (a, r, g, b) = (255, 235, 235, 235);
+                    }
+                } else if (y == 18 && (9..=15).contains(&x))
+                    || (y == 19 && (9..=15).contains(&x))
+                    || (y == 20 && (10..=14).contains(&x))
+                    || (y == 21 && (11..=13).contains(&x))
+                {
+                    // Rosca metálica
+                    (a, r, g, b) = (255, 185, 185, 190);
+                } else {
+                    // Transparente
+                    (a, r, g, b) = (0, 0, 0, 0);
+                }
+
+                data.push(a);
+                data.push(r);
+                data.push(g);
+                data.push(b);
+            }
+        }
+
+        vec![ksni::Icon {
+            width: S,
+            height: S,
+            data,
+        }]
     }
 
     fn title(&self) -> String {
-        "Mi Agenda".into()
+        "Remy".into()
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
         ksni::ToolTip {
-            icon_name: "text-editor-symbolic".into(),
-            title: "Mi Agenda".into(),
+            icon_name: String::new(),
+            title: "Remy".into(),
             description: "Agenda con checklist y recordatorios".into(),
             ..Default::default()
         }
@@ -100,7 +155,7 @@ impl Tray for AgendaTray {
     fn menu(&self) -> Vec<MenuItem<Self>> {
         vec![
             MenuItem::Standard(StandardItem {
-                label: "Abrir Mi Agenda".into(),
+                label: "Abrir Remy".into(),
                 activate: Box::new(|_| mostrar_ventana()),
                 ..Default::default()
             }),

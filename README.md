@@ -1,30 +1,34 @@
-# Mi Agenda
+# Remy
 
-Agenda tipo libreta para el escritorio **COSMIC** (y cualquier entorno Linux con
-GTK4): notas con **checklists**, **recordatorios periódicos** con notificación
-del sistema, **ícono en la bandeja del panel** y persistencia automática.
+A notebook-style agenda app for the **COSMIC** desktop (and any Linux
+environment with GTK4): notes with **checklists**, **recurring reminders**
+with desktop notifications, a **panel tray icon**, and automatic persistence.
 
 ![stack](https://img.shields.io/badge/Rust-1.75%2B-orange) ![gui](https://img.shields.io/badge/UI-GTK4%20%2B%20libadwaita-blue)
 
-## ✨ Características
+## ✨ Features
 
-- 📝 Notas con título, contenido libre y checklist interactivo
-- ✅ Checklist: agregar / marcar / eliminar ítems (guardado al instante)
-- 🔍 Filtros: Todas · Pendientes · Completadas · Con Recordatorio
-- ⏰ Recordatorio **periódico** por nota (cada 1 min … cada día) que se
-  reprograma solo; sobrevive cierres de la app
-- 🔔 Notificaciones nativas del escritorio
-- 📌 Ícono de bandeja (**StatusNotifier**) en el panel COSMIC:
-  - Clic izquierdo → restaura la ventana minimizada
-  - Menú *Abrir* / *Salir*
-  - La **X** oculta a la bandeja en vez de cerrar (con aviso único)
-- 💾 Persistencia JSON con **escritura atómica** (a prueba de cortes) y
-  recuperación automática desde backup si el archivo se corrompe
-- 🧪 Suite de tests de lógica (persistencia + recordatorios)
+- 📝 Notes with title, free-form content and an interactive checklist
+- ✅ Checklist: add / toggle / delete items (saved instantly on every change)
+- 🔍 Filters: All · Pending · Completed · With Reminder
+- ⏰ **Recurring reminders** per note (every 1 min … daily) that reschedule
+  themselves automatically and survive app restarts
+- 🔔 Native desktop notifications with sound
+- 📌 Tray icon (**StatusNotifier**) in the COSMIC panel — rendered as a white
+  light-bulb bitmap generated in code (independent of your icon theme):
+  - Left click → restore the minimized window
+  - Menu: *Open Remy* / *Quit*
+  - Closing with **X hides the app to the tray** instead of quitting
+    (first-time hint notification included)
+- 🪟 Native window decorations (minimize / maximize / close)
+- 💾 JSON persistence with **atomic writes** (crash-safe tmp+rename) plus
+  automatic recovery from backup if the file ever gets corrupted
+- 🧪 Logic test suite (persistence round-trip, recurring reminder logic,
+  corrupted-JSON tolerance)
 
 ---
 
-## 📦 Requisitos previos (paquetes del sistema)
+## 📦 Prerequisites (system packages)
 
 ### Debian / Ubuntu / Pop!_OS 22.04+
 
@@ -36,8 +40,8 @@ sudo apt install -y \
     libadwaita-1-dev
 ```
 
-> `libgtk-4-dev` arrastra `libglib2.0-dev`, `libgio*` y demás dependencias de
-> compilación de GTK/GLib vía `pkg-config`.
+> `libgtk-4-dev` pulls in `libglib2.0-dev`, `gio` and the rest of the
+> GTK/GLib build dependencies via `pkg-config`.
 
 ### Fedora 38+
 
@@ -57,44 +61,44 @@ sudo pacman -S --needed \
     libadwaita
 ```
 
-### Rust (todas las distros)
+### Rust (all distros)
 
-Si no tenés toolchain de Rust:
+If you don't have a Rust toolchain:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 source "$HOME/.cargo/env"
-rustc --version   # se requiere ≥ 1.75
+rustc --version   # requires >= 1.75
 ```
 
-### En tiempo de ejecución (ya incluidos en COSMIC)
+### Runtime components (already shipped with COSMIC)
 
-| Componente | Para qué | ¿Lo trae COSMIC? |
+| Component | Purpose | Included in COSMIC? |
 |---|---|---|
-| Servidor de notificaciones (ej. `cosmic-notifications`) | 🔔 recordatorios | ✅ Sí |
-| Applet **Área de estado** en el panel | 📌 ícono de bandeja | Instalable desde *Configuración → Panel* |
-| Sesión Wayland o X11 | UI | ✅ Sí |
+| Notification daemon (`cosmic-notifications`) | 🔔 reminders | ✅ Yes |
+| **Status Area** panel applet | 📌 tray icon | Add via *Settings → Panel* |
+| Wayland or X11 session | UI | ✅ Yes |
 
 ---
 
-## 🚀 Ejecutar el proyecto
+## 🚀 Running the project
 
 ```bash
-# 1) Clonar / copiar el proyecto
-cd mi-agenda-gtk
+# 1) Clone / copy the project
+cd remy-agenda
 
-# 2) Compilar (debug, rápido)
+# 2) Build (debug, fast)
 cargo build
 
-# 3) Correr
-./target/debug/mi-agenda-gtk
+# 3) Run
+./target/debug/remy-agenda
 ```
 
-### Modo producción (recomendado)
+### Production mode (recommended)
 
 ```bash
 cargo build --release
-./target/release/mi-agenda-gtk
+./target/release/remy-agenda
 ```
 
 ### Tests
@@ -103,24 +107,24 @@ cargo build --release
 cargo test --release
 ```
 
-Deben pasar 3 tests: roundtrip nota+checklist, lógica de recordatorio
-periódico, y tolerancia a JSON corrupto.
+3 tests must pass: note+checklist persistence round-trip, recurring reminder
+logic, and corrupted-JSON tolerance.
 
 ---
 
-## 🖥️ Instalar como aplicación (opcional)
+## 🖥️ Installing as an application (optional)
 
 ```bash
-# binario al sistema
+# system-wide binary
 sudo cp target/release/mi-agenda-gtk /usr/local/bin/
 
-# entrada de menú/lanzador
+# launcher entry
 mkdir -p ~/.local/share/applications
 cat > ~/.local/share/applications/com.tuusuario.MiAgendaGTK.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
-Name=Mi Agenda
-Comment=Agenda con checklist y recordatorios
+Name=Remy
+Comment=Agenda with checklist and reminders
 Exec=mi-agenda-gtk
 Icon=text-editor-symbolic
 Terminal=false
@@ -131,67 +135,67 @@ EOF
 update-desktop-database ~/.local/share/applications/ 2>/dev/null || true
 ```
 
-Ahora aparece en el lanzador COSMIC (tecla Super).
+The app now shows up in the COSMIC launcher (Super key).
 
 ---
 
-## 🗂️ Dónde viven tus datos
+## 🗂️ Where your data lives
 
-| Archivo | Contenido |
+| File | Contents |
 |---|---|
-| `~/.local/share/mi-agenda-gtk/data.json` | Notas, checklists, recordatorios |
-| `~/.local/share/mi-agenda-gtk/data.json.backup` | Copia automática previa a cada guardado |
+| `~/.local/share/mi-agenda-gtk/data.json` | Notes, checklists, reminders |
+| `~/.local/share/mi-agenda-gtk/data.json.backup` | Automatic copy taken before every save |
 
-El guardado es **atómico** (escribe `.tmp` + renombra): un corte de luz a
-mitad nunca corrompe el archivo final. Si `data.json` llegara a corromperse,
-la app intenta recuperar desde `.backup` sola.
-
----
-
-## 🧭 Uso rápido
-
-1. **Nueva Nota** (barra lateral) → escribe título y contenido
-2. Agregá ítems al **Checklist** y marcalos
-3. Botón **⏰ Repetir** en el editor → elegí intervalo (ej. *Cada 5 minutos*)
-   → recibirás notificaciones periódicas hasta desactivarlo
-4. **Minimizás o cerrás con X** → seguís viendo el ícono 📝 en el panel;
-   clic izquierdo para volver
-5. Salir real: botón **Salir** (sidebar) o menú del ícono de bandeja
+Saving is **atomic** (writes `.tmp` then renames): a power cut mid-write can
+never corrupt the final file. If `data.json` somehow gets corrupted, the app
+tries to recover from the backup automatically.
 
 ---
 
-## 🛠️ Solución de problemas
+## 🧭 Quick start
 
-| Síntoma | Causa / solución |
+1. **Nueva Nota / New Note** (sidebar) → type a title and content
+2. Add items to the **Checklist** and tick them off
+3. Press the **⏰ Repetir / Repeat** button in the editor → pick an interval
+   (e.g. *Every 5 minutes*) → you'll get periodic notifications until disabled
+4. **Minimize or close with X** → the 💡 tray icon stays in the panel;
+   left-click it to come back
+5. Real quit: the **Salir / Quit** button (sidebar) or the tray-icon menu
+
+---
+
+## 🛠️ Troubleshooting
+
+| Symptom | Cause / fix |
 |---|---|
-| `vkAcquireNextImageKHR ... VK_SUBOPTIMAL_KHR` al iniciar | Aviso inocuo del renderer Vulkan de GTK4. Forzá OpenGL:<br>`GSK_RENDERER=gl ./target/release/mi-agenda-gtk` |
-| No veo el ícono en el panel COSMIC | Agregá el applet **Área de estado**: *Configuración → Panel → Agregar applet*. La app loguea `[agenda] bandeja no disponible` si no hay host StatusNotifier |
-| No llegan notificaciones de recordatorios | Verificá el daemon de notificaciones (en COSMIC es nativo). Probá: `notify-send "test"` |
-| Error de compilación `pkg-config ... gtk4` | Falta `libgtk-4-dev` (o `gtk4-devel`) — sección *Requisitos previos* |
-| `error: linker 'cc' not found` | Falta `build-essential` (Debian/Ubuntu) o `gcc` (Fedora/Arch) |
-| La ventana no aparece tras ocultar | Buscá el ícono 📝 en el panel; clic izquierdo restaura |
+| `vkAcquireNextImageKHR ... VK_SUBOPTIMAL_KHR` on startup | Harmless notice from GTK4's Vulkan renderer. Force OpenGL:<br>`GSK_RENDERER=gl ./target/release/mi-agenda-gtk` |
+| Tray icon doesn't show in the COSMIC panel | Add the **Status Area** applet: *Settings → Panel → Add applet*. The app logs `[agenda] bandeja no disponible` when no StatusNotifier host is found |
+| Reminder notifications never arrive | Check the notification daemon (native in COSMIC). Sanity test: `notify-send "test"` |
+| Compile error `pkg-config ... gtk4` | Missing `libgtk-4-dev` (or `gtk4-devel`) — see *Prerequisites* |
+| `error: linker 'cc' not found` | Install `build-essential` (Debian/Ubuntu) or `gcc` (Fedora/Arch) |
+| Window "disappeared" after closing | Look for the 💡 tray icon in the panel; left-click restores |
 
 ---
 
-## 🏗️ Estructura del código
+## 🏗️ Code structure
 
 ```
 src/
-├── main.rs              # entry point GTK + tests de lógica
+├── main.rs              # GTK entry point + logic tests
 ├── model.rs             # Nota, ItemChecklist, AppState, FiltroNotas
-├── persistence.rs       # JSON atómico + backup + recuperación
-├── notifications.rs     # notify-rust (notificaciones de escritorio)
-├── tray.rs              # ícono StatusNotifier (ksni) + puente de hilos
+├── persistence.rs       # atomic JSON + backup + recovery
+├── notifications.rs     # notify-rust (desktop notifications + sound)
+├── tray.rs              # StatusNotifier icon (ksni) + thread bridge
 └── ui/
-    ├── main_window.rs   # AdwApplicationWindow, timers, cierre a bandeja
-    ├── sidebar.rs       # filtros, lista de notas, botón Salir
-    ├── note_editor.rs   # editor + checklist + recordatorio periódico
-    └── overlay.rs       # (reservado para overlay in-app)
+    ├── main_window.rs   # AdwApplicationWindow, timers, hide-to-tray
+    ├── sidebar.rs       # filters, notes list, quit button
+    ├── note_editor.rs   # editor + checklist + recurring reminder picker
+    └── overlay.rs       # (reserved for future in-app overlay)
 ```
 
-Stack: **Rust + GTK4 + libadwaita** (bindings oficiales gtk4-rs),
+Stack: **Rust + GTK4 + libadwaita** (official gtk4-rs bindings),
 `notify-rust`, `ksni`, `serde`/`chrono`/`uuid`.
 
-## 📄 Licencia
+## 📄 License
 
 MPL-2.0

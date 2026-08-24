@@ -58,12 +58,18 @@ impl MainWindow {
         main_box.append(&sidebar_widget);
         main_box.append(&view_stack);
 
+        // Decoraciones de ventana: barra de título con minimizar/maximizar/cerrar
+        let header_bar = libadwaita::HeaderBar::new();
+        let outer = GtkBox::new(Orientation::Vertical, 0);
+        outer.append(&header_bar);
+        outer.append(&main_box);
+
         let window = AdwApplicationWindow::builder()
             .application(app)
-            .title("Mi Agenda")
+            .title("Remy")
             .default_width(1000)
             .default_height(700)
-            .content(&main_box)
+            .content(&outer)
             .build();
 
         // La X OCULTA a la bandeja (guardando); salir solo con botones Salir
@@ -85,9 +91,9 @@ impl MainWindow {
                     drop(aviso);
                     std::thread::spawn(|| {
                         let _ = notify_rust::Notification::new()
-                            .appname("Mi Agenda")
-                            .summary("Mi Agenda sigue abierta")
-                            .body("Está en el área de estado del panel: usá el ícono para restaurarla o elegir Salir.")
+                            .appname("Remy")
+                            .summary("Remy sigue abierta")
+                            .body("Se ocultó al área de estado del panel: usá el ícono para restaurarla o elegir Salir.")
                             .timeout(notify_rust::Timeout::Milliseconds(5000))
                             .show();
                     });
@@ -151,9 +157,14 @@ impl MainWindow {
                                 nota.proximo_recordatorio = Some(ahora + delta);
                             }
                             Some(proximo) if proximo <= ahora => {
+                                let titulo_nota = if nota.titulo.is_empty() {
+                                    "(sin título)".to_string()
+                                } else {
+                                    nota.titulo.clone()
+                                };
                                 disparos.push((
                                     id,
-                                    format!("⏰ {}", if nota.titulo.is_empty() { "(sin título)" } else { &nota.titulo }),
+                                    titulo_nota,
                                     format!("Recordatorio periódico: {}", nota.titulo),
                                 ));
                                 // Reprograma SIEMPRE, aunque la app estuviera cerrada
@@ -168,7 +179,7 @@ impl MainWindow {
                         if rec <= ahora {
                             disparos.push((
                                 id,
-                                format!("⏰ {}", nota.titulo),
+                                nota.titulo.clone(),
                                 format!("Recordatorio: {}", nota.titulo),
                             ));
                             nota.recordatorio = None; // one-shot: se consume

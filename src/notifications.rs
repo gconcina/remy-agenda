@@ -12,25 +12,39 @@ lazy_static::lazy_static! {
 
 pub fn inicializar() -> Result<(), notify_rust::error::Error> {
     Notification::new()
-        .appname("Mi Agenda GTK")
-        .summary("Mi Agenda GTK")
+        .appname("Remy")
+        .summary("Remy")
         .body("Sistema de notificaciones inicializado")
-        .timeout(Timeout::Milliseconds(1000))
+        .timeout(Timeout::Milliseconds(2000))
         .show()?;
     Ok(())
 }
 
 pub fn mostrar_notificacion(notif: &NotificacionPendiente) -> Result<(), notify_rust::error::Error> {
+    // Cierra automáticamente cualquier notificación anterior aún abierta:
+    // siempre hay a lo sumo UNA visible
+    cerrar_todas_notificaciones();
+
     let handle = Notification::new()
-        .appname("Mi Agenda GTK")
-        .summary(&format!("⏰ {}", notif.titulo))
+        .appname("Remy")
+        .summary(&notif.titulo)
         .body(&notif.mensaje)
         .icon("preferences-system-time")
-        .timeout(Timeout::Never)
-        .action("abrir", "Abrir nota")
-        .action("posponer", "Posponer 10 min")
-        .action("descartar", "Descartar")
+        // 30 segundos visible
+        .timeout(Timeout::Milliseconds(30_000))
+        // Hint del estándar freedesktop: el daemon puede reproducir este
+        // sonido temático si lo soporta
+        .sound_name("message-new-instant")
         .show()?;
+
+    // Refuerzo de sonido local (independiente del daemon):
+    // paplay existe en cualquier escritorio con PipeWire/PulseAudio.
+    // Si falta el binario o el archivo, falla en silencio.
+    std::thread::spawn(|| {
+        let _ = std::process::Command::new("paplay")
+            .arg("/usr/share/sounds/freedesktop/stereo/message-new-instant.oga")
+            .output();
+    });
 
     let mut activas = NOTIFICACIONES_ACTIVAS.lock().unwrap();
     activas.insert(notif.nota_id, handle);
