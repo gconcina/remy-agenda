@@ -6,7 +6,7 @@ with desktop notifications, a **panel tray icon**, and automatic persistence.
 
 ![stack](https://img.shields.io/badge/Rust-1.75%2B-orange) ![gui](https://img.shields.io/badge/UI-GTK4%20%2B%20libadwaita-blue)
 
-## ✨ Features
+## Features
 
 - 📝 Notes with title, free-form content and an interactive checklist
 - ✅ Checklist: add / toggle / delete items (saved instantly on every change)
@@ -28,7 +28,7 @@ with desktop notifications, a **panel tray icon**, and automatic persistence.
 
 ---
 
-## 📦 Prerequisites (system packages)
+## Prerequisites (system packages)
 
 ### Debian / Ubuntu / Pop!_OS 22.04+
 
@@ -81,7 +81,7 @@ rustc --version   # requires >= 1.75
 
 ---
 
-## 🚀 Running the project
+## Running the project
 
 ```bash
 # 1) Clone / copy the project
@@ -112,7 +112,7 @@ logic, and corrupted-JSON tolerance.
 
 ---
 
-## 🖥️ Installing as an application (optional)
+## Installing as an application (optional)
 
 ```bash
 # system-wide binary
@@ -139,7 +139,7 @@ The app now shows up in the COSMIC launcher (Super key).
 
 ---
 
-## 🗂️ Where your data lives
+## Where your data lives
 
 | File | Contents |
 |---|---|
@@ -152,7 +152,7 @@ tries to recover from the backup automatically.
 
 ---
 
-## 🧭 Quick start
+## Quick start
 
 1. **Nueva Nota / New Note** (sidebar) → type a title and content
 2. Add items to the **Checklist** and tick them off
@@ -164,7 +164,7 @@ tries to recover from the backup automatically.
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
@@ -177,7 +177,7 @@ tries to recover from the backup automatically.
 
 ---
 
-## 🏗️ Code structure
+## Code structure
 
 ```
 src/
@@ -196,6 +196,6 @@ src/
 Stack: **Rust + GTK4 + libadwaita** (official gtk4-rs bindings),
 `notify-rust`, `ksni`, `serde`/`chrono`/`uuid`.
 
-## 📄 License
+## License
 
 MPL-2.0
