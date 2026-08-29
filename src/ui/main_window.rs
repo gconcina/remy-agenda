@@ -211,6 +211,20 @@ impl MainWindow {
     pub fn present(&self) {
         self.window.present();
     }
+
+    /// Muestra la ventana, salvo que el ajuste "iniciar_minimizado" esté
+    /// activo: en ese caso la crea y la oculta en la bandeja del sistema.
+    pub fn present_or_hide(&self) {
+        self.window.present();
+        let minimizar = match self.state.lock() {
+            Ok(s) => s.iniciar_minimizado,
+            Err(_) => return,
+        };
+        if minimizar {
+            self.window.hide();
+            println!("[agenda] arranque minimizado: ventana oculta en la bandeja");
+        }
+    }
 }
 
 impl Drop for MainWindow {

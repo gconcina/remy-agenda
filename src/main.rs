@@ -35,7 +35,7 @@ fn main() -> glib::ExitCode {
 
     app.connect_activate(move |app| {
         let window = MainWindow::new(app);
-        window.present();
+        window.present_or_hide();
     });
 
     app.run()

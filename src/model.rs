@@ -161,6 +161,9 @@ pub struct AppState {
     pub nota_actual: Option<Uuid>,
     pub filtro: FiltroNotas,
     pub notificaciones_activas: Vec<NotificacionPendiente>,
+    /// Arrancar la ventana oculta en la bandeja del sistema
+    #[serde(default)]
+    pub iniciar_minimizado: bool,
     #[serde(skip)]
     pub texto_nuevo_checklist: String,
     #[serde(skip)]

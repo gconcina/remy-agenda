@@ -162,6 +162,34 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
     // Primera construcción inmediata
     rebuild_notes_list(&notes_list, &state, &view_stack);
 
+    // Separador + ajustes
+    sidebar.append(&gtk4::Separator::new(Orientation::Horizontal));
+
+    let ajustes_row = libadwaita::ActionRow::new();
+    ajustes_row.set_title("Iniciar minimizado");
+    ajustes_row.set_subtitle("Arranca oculta en la bandeja del panel");
+    let check_min = gtk4::CheckButton::new();
+    check_min.set_active({
+        let s = state.lock().unwrap();
+        s.iniciar_minimizado
+    });
+    ajustes_row.add_suffix(&check_min);
+    ajustes_row.set_activatable(true);
+    {
+        let st = Arc::clone(&state);
+        let chk = check_min.clone();
+        ajustes_row.connect_activated(move |_| {
+            chk.set_active(!chk.is_active());
+        });
+        check_min.connect_toggled(move |c| {
+            let mut s = st.lock().unwrap();
+            s.iniciar_minimizado = c.is_active();
+            let _ = crate::persistence::guardar_datos(&s);
+            println!("[agenda] iniciar_minimizado = {}", c.is_active());
+        });
+    }
+    sidebar.append(&ajustes_row);
+
     sidebar
 }
 
