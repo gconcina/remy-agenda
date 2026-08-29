@@ -72,7 +72,7 @@ pub struct AgendaTray;
 
 impl Tray for AgendaTray {
     fn id(&self) -> String {
-        "mi-agenda-gtk".into()
+        "remy-agenda".into()
     }
 
     fn icon_name(&self) -> String {

@@ -116,16 +116,16 @@ logic, and corrupted-JSON tolerance.
 
 ```bash
 # system-wide binary
-sudo cp target/release/mi-agenda-gtk /usr/local/bin/
+sudo cp target/release/remy-agenda /usr/local/bin/
 
 # launcher entry
 mkdir -p ~/.local/share/applications
-cat > ~/.local/share/applications/com.tuusuario.MiAgendaGTK.desktop << 'EOF'
+cat > ~/.local/share/applications/com.github.gconcina.RemyAgenda.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Remy
 Comment=Agenda with checklist and reminders
-Exec=mi-agenda-gtk
+Exec=remy-agenda
 Icon=text-editor-symbolic
 Terminal=false
 Categories=Office;Utility;
@@ -143,8 +143,8 @@ The app now shows up in the COSMIC launcher (Super key).
 
 | File | Contents |
 |---|---|
-| `~/.local/share/mi-agenda-gtk/data.json` | Notes, checklists, reminders |
-| `~/.local/share/mi-agenda-gtk/data.json.backup` | Automatic copy taken before every save |
+| `~/.local/share/remy-agenda/data.json` | Notes, checklists, reminders |
+| `~/.local/share/remy-agenda/data.json.backup` | Automatic copy taken before every save |
 
 Saving is **atomic** (writes `.tmp` then renames): a power cut mid-write can
 never corrupt the final file. If `data.json` somehow gets corrupted, the app
@@ -168,7 +168,7 @@ tries to recover from the backup automatically.
 
 | Symptom | Cause / fix |
 |---|---|
-| `vkAcquireNextImageKHR ... VK_SUBOPTIMAL_KHR` on startup | Harmless notice from GTK4's Vulkan renderer. Force OpenGL:<br>`GSK_RENDERER=gl ./target/release/mi-agenda-gtk` |
+| `vkAcquireNextImageKHR ... VK_SUBOPTIMAL_KHR` on startup | Harmless notice from GTK4's Vulkan renderer. Force OpenGL:<br>`GSK_RENDERER=gl ./target/release/remy-agenda` |
 | Tray icon doesn't show in the COSMIC panel | Add the **Status Area** applet: *Settings → Panel → Add applet*. The app logs `[agenda] bandeja no disponible` when no StatusNotifier host is found |
 | Reminder notifications never arrive | Check the notification daemon (native in COSMIC). Sanity test: `notify-send "test"` |
 | Compile error `pkg-config ... gtk4` | Missing `libgtk-4-dev` (or `gtk4-devel`) — see *Prerequisites* |

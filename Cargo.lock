@@ -1070,29 +1070,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mi-agenda-gtk"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs",
- "gio",
- "glib",
- "gtk4",
- "ksni",
- "lazy_static",
- "libadwaita",
- "notify-rust",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "mio"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1384,6 +1361,29 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "remy-agenda"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs",
+ "gio",
+ "glib",
+ "gtk4",
+ "ksni",
+ "lazy_static",
+ "libadwaita",
+ "notify-rust",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
 
 [[package]]
 name = "rustc_version"

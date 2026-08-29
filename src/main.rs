@@ -11,7 +11,7 @@ mod notifications;
 mod tray;
 mod ui;
 
-const APP_ID: &str = "com.tuusuario.MiAgendaGTK";
+const APP_ID: &str = "com.github.gconcina.RemyAgenda";
 
 fn main() -> glib::ExitCode {
     // Initialize logging

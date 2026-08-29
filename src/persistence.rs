@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{error, info, warn};
 
-const APP_DIR: &str = "mi-agenda-gtk";
+const APP_DIR: &str = "remy-agenda";
 const DATA_FILE: &str = "data.json";
 const BACKUP_FILE: &str = "data.json.backup";
 
@@ -113,7 +113,7 @@ pub(crate) mod test_util {
     /// Directorio temporal único por test (pid + nombre)
     pub fn dir_temp(nombre: &str) -> PathBuf {
         let base = env::temp_dir();
-        let dir = base.join(format!("mi-agenda-test-{}-{}", std::process::id(), nombre));
+        let dir = base.join(format!("remy-agenda-test-{}-{}", std::process::id(), nombre));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
