@@ -2,6 +2,7 @@
 
 A notebook-style agenda app for  any Linux
 environment with GTK4 
+
 ![stack](https://img.shields.io/badge/Rust-1.75%2B-orange) ![gui](https://img.shields.io/badge/UI-GTK4%20%2B%20libadwaita-blue)
 
 ## Features
