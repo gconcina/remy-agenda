@@ -1,5 +1,5 @@
 <p align="center">
-<img width="123" height="128"  alt="remy logo " src="https://github.com/user-attachments/assets/58f1eeae-398c-433b-8ba5-22a0e22b2d4b" />
+<img width="110" height="128"  alt="remy logo " src="https://github.com/user-attachments/assets/58f1eeae-398c-433b-8ba5-22a0e22b2d4b" />
 </p>
 
 
