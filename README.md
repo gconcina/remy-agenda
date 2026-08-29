@@ -1,9 +1,7 @@
 # Remy
 
-A notebook-style agenda app for the **COSMIC** desktop (and any Linux
-environment with GTK4): notes with **checklists**, **recurring reminders**
-with desktop notifications, a **panel tray icon**, and automatic persistence.
-
+A notebook-style agenda app for  any Linux
+environment with GTK4 
 ![stack](https://img.shields.io/badge/Rust-1.75%2B-orange) ![gui](https://img.shields.io/badge/UI-GTK4%20%2B%20libadwaita-blue)
 
 ## Features
