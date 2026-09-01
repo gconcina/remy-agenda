@@ -3,6 +3,7 @@ use libadwaita::prelude::*;
 use gtk4::{Box as GtkBox, Orientation, ScrolledWindow, PolicyType, Entry, TextView, TextBuffer, Switch, Button, Separator, Label, CheckButton};
 use std::sync::{Arc, Mutex};
 use crate::model::AppState;
+use chrono::Timelike;
 use std::cell::RefCell;
 
 // El editor vive en el hilo principal de GTK; thread_local es la forma
@@ -195,9 +196,190 @@ fn build_editor_ui(content_area: &GtkBox, state: &Arc<Mutex<AppState>>, nota: cr
 
     pop.set_child(Some(&pop_box));
     rem_btn.set_popover(Some(&pop));
-    header.append(&rem_btn);
+        header.append(&rem_btn);
 
-    let delete_btn = Button::new();
+        // Recordatorio de fecha y hora (one-shot). El backend ya dispara
+        // `nota.recordatorio` cuando vence; acá solo agregamos el picker.
+        let rem_abs_label_text = match nota.recordatorio {
+            Some(dt) => dt.format("%d/%m %H:%M").to_string(),
+            None => "Recordatorio".to_string(),
+        };
+        let rem_abs_label = Label::new(Some(&rem_abs_label_text));
+        let rem_abs_btn = gtk4::MenuButton::new();
+        let rem_abs_box = GtkBox::new(Orientation::Horizontal, 6);
+        rem_abs_box.append(&gtk4::Image::from_icon_name("appointment-soon-symbolic"));
+        rem_abs_box.append(&rem_abs_label);
+        rem_abs_btn.set_child(Some(&rem_abs_box));
+        rem_abs_btn.set_valign(gtk4::Align::Center);
+
+        let pop_abs = gtk4::Popover::new();
+        let pop_abs_box = GtkBox::new(Orientation::Vertical, 6);
+        pop_abs_box.set_margin_top(8);
+        pop_abs_box.set_margin_bottom(8);
+        pop_abs_box.set_margin_start(8);
+        pop_abs_box.set_margin_end(8);
+
+        // Atajos rápidos: "minutos" (En N min/h)
+        let quick_box = GtkBox::new(Orientation::Horizontal, 4);
+        for (txt, dur) in [
+            ("En 5 min", chrono::Duration::minutes(5)),
+            ("En 15 min", chrono::Duration::minutes(15)),
+            ("En 1 h", chrono::Duration::hours(1)),
+        ] {
+            let b = Button::with_label(txt);
+            b.add_css_class("flat");
+            let st2 = Arc::clone(state);
+            let pop_c = pop_abs.clone();
+            let lbl_c2 = rem_abs_label.clone();
+            b.connect_clicked(move |_| {
+                let nueva = chrono::Local::now() + dur;
+                {
+                    let mut s = st2.lock().unwrap();
+                    if let Some(n) = s.notas.get_mut(&nota_id) {
+                        n.recordatorio = Some(nueva);
+                        n.actualizada = chrono::Local::now();
+                    }
+                }
+                let _ = crate::persistence::guardar_datos(&st2.lock().unwrap());
+                lbl_c2.set_text(&nueva.format("%d/%m %H:%M").to_string());
+                println!("[agenda] recordatorio (atajo) nota {nota_id}: {nueva}");
+                pop_c.popdown();
+            });
+            quick_box.append(&b);
+        }
+        {
+            // Atajo "Mañana 9:00" (fecha + hora combinadas)
+            let b_manana = Button::with_label("Mañana 9:00");
+            b_manana.add_css_class("flat");
+            let st2 = Arc::clone(state);
+            let pop_c = pop_abs.clone();
+            let lbl_c2 = rem_abs_label.clone();
+            b_manana.connect_clicked(move |_| {
+                let manana_date = (chrono::Local::now() + chrono::Duration::days(1)).date_naive();
+                let nueva = manana_date
+                    .and_hms_opt(9, 0, 0)
+                    .and_then(|ndt| ndt.and_local_timezone(chrono::Local).single())
+                    .unwrap_or_else(|| chrono::Local::now() + chrono::Duration::days(1));
+                {
+                    let mut s = st2.lock().unwrap();
+                    if let Some(n) = s.notas.get_mut(&nota_id) {
+                        n.recordatorio = Some(nueva);
+                        n.actualizada = chrono::Local::now();
+                    }
+                }
+                let _ = crate::persistence::guardar_datos(&st2.lock().unwrap());
+                lbl_c2.set_text(&nueva.format("%d/%m %H:%M").to_string());
+                println!("[agenda] recordatorio (mañana 9) nota {nota_id}: {nueva}");
+                pop_c.popdown();
+            });
+            quick_box.append(&b_manana);
+        }
+        pop_abs_box.append(&quick_box);
+
+        pop_abs_box.append(&gtk4::Separator::new(Orientation::Horizontal));
+
+        // Picker personalizado: día + hora + minutos (la "fecha y hora a la vez")
+        let custom_box = GtkBox::new(Orientation::Vertical, 6);
+        let cal = gtk4::Calendar::new();
+        custom_box.append(&cal);
+
+        let (h_init, m_init) = match nota.recordatorio {
+            Some(dt) => (dt.hour() as f64, dt.minute() as f64),
+            None => (20.0, 0.0),
+        };
+        let h_adj = gtk4::Adjustment::new(h_init, 0.0, 23.0, 1.0, 1.0, 0.0);
+        let hour_spin = gtk4::SpinButton::new(Some(&h_adj), 1.0, 0);
+        hour_spin.set_wrap(true);
+        let m_adj = gtk4::Adjustment::new(m_init, 0.0, 59.0, 1.0, 5.0, 0.0);
+        let min_spin = gtk4::SpinButton::new(Some(&m_adj), 1.0, 0);
+        min_spin.set_wrap(true);
+
+        let time_row = GtkBox::new(Orientation::Horizontal, 6);
+        time_row.set_halign(gtk4::Align::Center);
+        time_row.append(&Label::new(Some("Hora:")));
+        time_row.append(&hour_spin);
+        time_row.append(&Label::new(Some("Min:")));
+        time_row.append(&min_spin);
+        custom_box.append(&time_row);
+
+        let aplicar = Button::with_label("Aplicar");
+        aplicar.add_css_class("suggested-action");
+        aplicar.set_halign(gtk4::Align::End);
+        {
+            let st2 = Arc::clone(state);
+            let pop_c = pop_abs.clone();
+            let lbl_c2 = rem_abs_label.clone();
+            let cal_c = cal.clone();
+            let hs = hour_spin.clone();
+            let ms = min_spin.clone();
+            aplicar.connect_clicked(move |_| {
+                let y: i32 = cal_c.property("year");
+                let mo: u32 = cal_c.property("month");
+                let d: u32 = cal_c.property("day");
+                let h = hs.value() as i32;
+                let mi = ms.value() as i32;
+                let nueva = match chrono::NaiveDate::from_ymd_opt(y, mo + 1, d) {
+                    Some(nd) => nd
+                        .and_hms_opt(h as u32, mi as u32, 0)
+                        .and_then(|ndt| ndt.and_local_timezone(chrono::Local).single()),
+                    None => None,
+                };
+                let nueva = match nueva {
+                    Some(dt) => dt,
+                    None => {
+                        eprintln!("[agenda] fecha/hora inválida");
+                        return;
+                    }
+                };
+                if nueva <= chrono::Local::now() {
+                    eprintln!("[agenda] recordatorio en el pasado, no se aplica");
+                    return;
+                }
+                {
+                    let mut s = st2.lock().unwrap();
+                    if let Some(n) = s.notas.get_mut(&nota_id) {
+                        n.recordatorio = Some(nueva);
+                        n.actualizada = chrono::Local::now();
+                    }
+                }
+                let _ = crate::persistence::guardar_datos(&st2.lock().unwrap());
+                lbl_c2.set_text(&nueva.format("%d/%m %H:%M").to_string());
+                println!("[agenda] recordatorio (custom) nota {nota_id}: {nueva}");
+                pop_c.popdown();
+            });
+        }
+        custom_box.append(&aplicar);
+        pop_abs_box.append(&custom_box);
+
+        pop_abs_box.append(&gtk4::Separator::new(Orientation::Horizontal));
+
+        let des_btn = Button::with_label("Desactivar");
+        des_btn.add_css_class("flat");
+        {
+            let st2 = Arc::clone(state);
+            let pop_c = pop_abs.clone();
+            let lbl_c2 = rem_abs_label.clone();
+            des_btn.connect_clicked(move |_| {
+                {
+                    let mut s = st2.lock().unwrap();
+                    if let Some(n) = s.notas.get_mut(&nota_id) {
+                        n.recordatorio = None;
+                        n.actualizada = chrono::Local::now();
+                    }
+                }
+                let _ = crate::persistence::guardar_datos(&st2.lock().unwrap());
+                lbl_c2.set_text("Recordatorio");
+                println!("[agenda] recordatorio desactivado en nota {nota_id}");
+                pop_c.popdown();
+            });
+        }
+        pop_abs_box.append(&des_btn);
+
+        pop_abs.set_child(Some(&pop_abs_box));
+        rem_abs_btn.set_popover(Some(&pop_abs));
+        header.append(&rem_abs_btn);
+
+        let delete_btn = Button::new();
     delete_btn.set_icon_name("edit-delete-symbolic");
     delete_btn.add_css_class("destructive-action");
     header.append(&delete_btn);

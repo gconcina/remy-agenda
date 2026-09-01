@@ -25,6 +25,7 @@ pub struct Nota {
     pub titulo: String,
     pub contenido: String,
     pub checklist: Vec<ItemChecklist>,
+    #[serde(default)]
     pub recordatorio: Option<chrono::DateTime<chrono::Local>>,
     pub completada: bool,
     pub creada: chrono::DateTime<chrono::Local>,
