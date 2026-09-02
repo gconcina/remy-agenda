@@ -305,7 +305,25 @@ fn build_editor_ui(content_area: &GtkBox, state: &Arc<Mutex<AppState>>, nota: cr
                     }
                 };
                 if nueva <= chrono::Local::now() {
-                    eprintln!("[agenda] recordatorio en el pasado, no se aplica");
+                    let parent: Option<gtk4::Window> =
+                        pop_c.root().and_then(|r| r.downcast::<gtk4::Window>().ok());
+                    let dlg = gtk4::MessageDialog::new(
+                        parent.as_ref(),
+                        gtk4::DialogFlags::MODAL | gtk4::DialogFlags::DESTROY_WITH_PARENT,
+                        gtk4::MessageType::Warning,
+                        gtk4::ButtonsType::Ok,
+                        "La fecha y hora seleccionadas ya pasaron.",
+                    );
+                    dlg.set_secondary_text(Some(
+                        "No se va a establecer el recordatorio porque es anterior al momento actual.",
+                    ));
+                    // El `dlg` local se dropea al retornar; clonamos dentro del
+                    // closure de respuesta para que el diálogo viva hasta el click.
+                    let dlg_keep = dlg.clone();
+                    dlg.connect_response(move |_, _| {
+                        dlg_keep.destroy();
+                    });
+                    dlg.present();
                     return;
                 }
                 {
