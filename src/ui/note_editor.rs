@@ -247,33 +247,6 @@ fn build_editor_ui(content_area: &GtkBox, state: &Arc<Mutex<AppState>>, nota: cr
             });
             quick_box.append(&b);
         }
-        {
-            // Atajo "Mañana 9:00" (fecha + hora combinadas)
-            let b_manana = Button::with_label("Mañana 9:00");
-            b_manana.add_css_class("flat");
-            let st2 = Arc::clone(state);
-            let pop_c = pop_abs.clone();
-            let lbl_c2 = rem_abs_label.clone();
-            b_manana.connect_clicked(move |_| {
-                let manana_date = (chrono::Local::now() + chrono::Duration::days(1)).date_naive();
-                let nueva = manana_date
-                    .and_hms_opt(9, 0, 0)
-                    .and_then(|ndt| ndt.and_local_timezone(chrono::Local).single())
-                    .unwrap_or_else(|| chrono::Local::now() + chrono::Duration::days(1));
-                {
-                    let mut s = st2.lock().unwrap();
-                    if let Some(n) = s.notas.get_mut(&nota_id) {
-                        n.recordatorio = Some(nueva);
-                        n.actualizada = chrono::Local::now();
-                    }
-                }
-                let _ = crate::persistence::guardar_datos(&st2.lock().unwrap());
-                lbl_c2.set_text(&nueva.format("%d/%m %H:%M").to_string());
-                println!("[agenda] recordatorio (mañana 9) nota {nota_id}: {nueva}");
-                pop_c.popdown();
-            });
-            quick_box.append(&b_manana);
-        }
         pop_abs_box.append(&quick_box);
 
         pop_abs_box.append(&gtk4::Separator::new(Orientation::Horizontal));
@@ -314,11 +287,11 @@ fn build_editor_ui(content_area: &GtkBox, state: &Arc<Mutex<AppState>>, nota: cr
             let ms = min_spin.clone();
             aplicar.connect_clicked(move |_| {
                 let y: i32 = cal_c.property("year");
-                let mo: u32 = cal_c.property("month");
-                let d: u32 = cal_c.property("day");
+                let mo: i32 = cal_c.property("month");
+                let d: i32 = cal_c.property("day");
                 let h = hs.value() as i32;
                 let mi = ms.value() as i32;
-                let nueva = match chrono::NaiveDate::from_ymd_opt(y, mo + 1, d) {
+                let nueva = match chrono::NaiveDate::from_ymd_opt(y, mo as u32 + 1, d as u32) {
                     Some(nd) => nd
                         .and_hms_opt(h as u32, mi as u32, 0)
                         .and_then(|ndt| ndt.and_local_timezone(chrono::Local).single()),
@@ -343,7 +316,8 @@ fn build_editor_ui(content_area: &GtkBox, state: &Arc<Mutex<AppState>>, nota: cr
                     }
                 }
                 let _ = crate::persistence::guardar_datos(&st2.lock().unwrap());
-                lbl_c2.set_text(&nueva.format("%d/%m %H:%M").to_string());
+                let texto = nueva.format("%d/%m %H:%M").to_string();
+                lbl_c2.set_text(&texto);
                 println!("[agenda] recordatorio (custom) nota {nota_id}: {nueva}");
                 pop_c.popdown();
             });
@@ -387,10 +361,44 @@ fn build_editor_ui(content_area: &GtkBox, state: &Arc<Mutex<AppState>>, nota: cr
     content_area.append(&header);
 
     let sep = Separator::new(Orientation::Horizontal);
-    content_area.append(&sep);
+        content_area.append(&sep);
 
-    // ---- Contenido scrolleable ----
-    let scroll = ScrolledWindow::new();
+        // ---- Mensaje del recordatorio (sub-texto de la notificación) ----
+        let msg_row = GtkBox::new(Orientation::Horizontal, 8);
+        msg_row.set_margin_top(8);
+        msg_row.set_margin_bottom(0);
+        msg_row.set_margin_start(24);
+        msg_row.set_margin_end(24);
+
+        let msg_label = Label::new(Some("Mensaje del recordatorio:"));
+        msg_label.set_halign(gtk4::Align::Start);
+
+        let msg_entry = Entry::new();
+        msg_entry.set_placeholder_text(Some("Texto que se verá en la notificación (opcional)"));
+        msg_entry.set_hexpand(true);
+        if let Some(ref m) = nota.recordatorio_mensaje {
+            msg_entry.set_text(m);
+        }
+        {
+            let st = Arc::clone(state);
+            msg_entry.connect_changed(move |e| {
+                let texto = e.text().trim().to_string();
+                {
+                    let mut s = st.lock().unwrap();
+                    if let Some(n) = s.notas.get_mut(&nota_id) {
+                        n.recordatorio_mensaje = if texto.is_empty() { None } else { Some(texto) };
+                        n.actualizada = chrono::Local::now();
+                    }
+                }
+                let _ = crate::persistence::guardar_datos(&st.lock().unwrap());
+            });
+        }
+        msg_row.append(&msg_label);
+        msg_row.append(&msg_entry);
+        content_area.append(&msg_row);
+
+        // ---- Contenido scrolleable ----
+        let scroll = ScrolledWindow::new();
     scroll.set_policy(PolicyType::Never, PolicyType::Automatic);
     scroll.set_vexpand(true);
 

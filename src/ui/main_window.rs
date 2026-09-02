@@ -162,11 +162,14 @@ impl MainWindow {
                                 } else {
                                     nota.titulo.clone()
                                 };
-                                disparos.push((
-                                    id,
-                                    titulo_nota,
-                                    format!("Recordatorio periódico: {}", nota.titulo),
-                                ));
+                                let cuerpo = nota
+                                    .recordatorio_mensaje
+                                    .as_deref()
+                                    .map(str::trim)
+                                    .filter(|s| !s.is_empty())
+                                    .map(str::to_string)
+                                    .unwrap_or_else(|| format!("Recordatorio periódico: {}", nota.titulo));
+                                disparos.push((id, titulo_nota, cuerpo));
                                 // Reprograma SIEMPRE, aunque la app estuviera cerrada
                                 nota.proximo_recordatorio = Some(ahora + delta);
                             }
@@ -177,11 +180,14 @@ impl MainWindow {
                     // 2. Recordatorio único (legado)
                     if let Some(rec) = nota.recordatorio {
                         if rec <= ahora {
-                            disparos.push((
-                                id,
-                                nota.titulo.clone(),
-                                format!("Recordatorio: {}", nota.titulo),
-                            ));
+                            let cuerpo = nota
+                                .recordatorio_mensaje
+                                .as_deref()
+                                .map(str::trim)
+                                .filter(|s| !s.is_empty())
+                                .map(str::to_string)
+                                .unwrap_or_else(|| format!("Recordatorio: {}", nota.titulo));
+                            disparos.push((id, nota.titulo.clone(), cuerpo));
                             nota.recordatorio = None; // one-shot: se consume
                         }
                     }

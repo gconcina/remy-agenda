@@ -36,6 +36,9 @@ pub struct Nota {
     /// Próxima vez que dispara el recordatorio periódico
     #[serde(default)]
     pub proximo_recordatorio: Option<chrono::DateTime<chrono::Local>>,
+    /// Texto personalizado para el cuerpo de la notificación del recordatorio
+    #[serde(default)]
+    pub recordatorio_mensaje: Option<String>,
 }
 
 impl Nota {
@@ -52,6 +55,7 @@ impl Nota {
             actualizada: ahora,
             intervalo_segundos: None,
             proximo_recordatorio: None,
+            recordatorio_mensaje: None,
         }
     }
 
