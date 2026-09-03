@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+use chrono::{Datelike, Timelike};
+use crate::i18n::Idioma;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemChecklist {
@@ -39,6 +41,12 @@ pub struct Nota {
     /// Texto personalizado para el cuerpo de la notificación del recordatorio
     #[serde(default)]
     pub recordatorio_mensaje: Option<String>,
+    /// Días de la semana para recordatorio semanal (0=Dom..6=Sáb). None = desactivado.
+    #[serde(default)]
+    pub dias_semana: Option<Vec<u8>>,
+    /// Próxima vez que dispara el recordatorio semanal.
+    #[serde(default)]
+    pub proximo_recordatorio_semanal: Option<chrono::DateTime<chrono::Local>>,
 }
 
 impl Nota {
@@ -56,13 +64,15 @@ impl Nota {
             intervalo_segundos: None,
             proximo_recordatorio: None,
             recordatorio_mensaje: None,
+            dias_semana: None,
+            proximo_recordatorio_semanal: None,
         }
     }
 
-    pub fn etiqueta_intervalo(&self) -> String {
+    pub fn etiqueta_intervalo(&self, idioma: Idioma) -> String {
         // El ícono de reloj ya está en el botón; el texto no repite el emoji
         match self.intervalo_segundos {
-            None => "Repetir".to_string(),
+            None => crate::i18n::t(idioma, "rep.etiqueta"),
             Some(s) => formatear_intervalo(s),
         }
     }
@@ -75,6 +85,33 @@ pub fn formatear_intervalo(seg: u64) -> String {
         s if s < 86400 => format!("{} h", s / 3600),
         s => format!("{} días", s / 86400),
     }
+}
+
+/// Calcula el próximo datetime en que debe disparar el recordatorio semanal
+/// para los días dados (0=Dom..6=Sáb). Si hoy está en `dias`, devuelve el
+/// siguiente día de la lista a la misma hora/minuto que `ahora` (evita
+/// disparar instantáneamente al tildar el día de hoy).
+pub fn proximo_disparo_semanal(
+    dias: &[u8],
+    ahora: chrono::DateTime<chrono::Local>,
+) -> chrono::DateTime<chrono::Local> {
+    let wd_now = ahora.weekday().num_days_from_sunday() as u8;
+    let h = ahora.hour();
+    let m = ahora.minute();
+    let s = ahora.second();
+    for delta in 1..=7u32 {
+        let wd = ((wd_now as u32 + delta) % 7) as u8;
+        if dias.contains(&wd) {
+            let date = ahora.date_naive() + chrono::Duration::days(delta as i64);
+            if let Some(ndt) = date
+                .and_hms_opt(h, m, s)
+                .and_then(|n| n.and_local_timezone(chrono::Local).single())
+            {
+                return ndt;
+            }
+        }
+    }
+    ahora + chrono::Duration::days(7)
 }
 
 impl Nota {
@@ -123,13 +160,14 @@ impl FiltroNotas {
         ]
     }
 
-    pub fn label(&self) -> &'static str {
-        match self {
-            FiltroNotas::Todas => "Todas",
-            FiltroNotas::Pendientes => "Pendientes",
-            FiltroNotas::Completadas => "Completadas",
-            FiltroNotas::ConRecordatorio => "Con Recordatorio",
-        }
+    pub fn label(&self, idioma: Idioma) -> String {
+        let k = match self {
+            FiltroNotas::Todas => "filtro.todas",
+            FiltroNotas::Pendientes => "filtro.pendientes",
+            FiltroNotas::Completadas => "filtro.completadas",
+            FiltroNotas::ConRecordatorio => "filtro.con_recordatorio",
+        };
+        crate::i18n::t(idioma, k)
     }
 
     pub fn icon(&self) -> &'static str {
@@ -166,6 +204,9 @@ pub struct AppState {
     pub nota_actual: Option<Uuid>,
     pub filtro: FiltroNotas,
     pub notificaciones_activas: Vec<NotificacionPendiente>,
+    /// Idioma de la UI. Persiste entre sesiones; default Español.
+    #[serde(default)]
+    pub idioma: crate::i18n::Idioma,
     /// Arrancar la ventana oculta en la bandeja del sistema
     #[serde(default)]
     pub iniciar_minimizado: bool,

@@ -3,10 +3,25 @@ use libadwaita::prelude::*;
 use gtk4::{Box as GtkBox, Orientation, Label, ScrolledWindow, PolicyType};
 use libadwaita::ViewStack;
 use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 use crate::model::{AppState, FiltroNotas};
 use crate::ui::note_editor;
+use crate::i18n;
 
-pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> GtkBox {
+/// Callback opcional que se invoca cuando el usuario cambia el idioma
+/// desde la ventana de Opciones. Permite reconstruir la UI en caliente.
+/// GTK widgets no son `Send`/`Sync`, así que el callback corre exclusivamente
+/// en el hilo principal de GTK.
+pub type OnIdiomaChange = Option<Rc<dyn Fn()>>;
+
+pub fn create_sidebar(
+    state: Arc<Mutex<AppState>>,
+    view_stack: ViewStack,
+    parent_window: gtk4::Window,
+    on_idioma_change: OnIdiomaChange,
+) -> GtkBox {
+    let idioma = i18n::idioma_actual();
+
     let sidebar = GtkBox::new(Orientation::Vertical, 0);
     sidebar.set_size_request(280, -1);
     sidebar.add_css_class("sidebar");
@@ -18,7 +33,7 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
     header_box.set_margin_start(16);
     header_box.set_margin_end(16);
 
-    let title = Label::new(Some("Agenda"));
+    let title = Label::new(Some(&i18n::t(idioma, "app.titulo_sidebar")));
     title.add_css_class("title-1");
     header_box.append(&title);
 
@@ -26,7 +41,7 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
 
     // Botón nueva nota
     let new_note_btn = gtk4::Button::new();
-    new_note_btn.set_label("Nueva Nota");
+    new_note_btn.set_label(&i18n::t(idioma, "app.nueva_nota"));
     new_note_btn.set_icon_name("list-add-symbolic");
     new_note_btn.set_hexpand(true);
     new_note_btn.set_margin_top(4);
@@ -50,7 +65,6 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
             let _ = crate::persistence::guardar_datos(&st.lock().unwrap());
             note_editor::update_editor_for_note(Arc::clone(&st));
             stack_c.set_visible_child_name("editor");
-            println!("[agenda] nota creada: {id}");
         });
     }
     sidebar.append(&new_note_btn);
@@ -59,7 +73,7 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
     sidebar.append(&gtk4::Separator::new(Orientation::Horizontal));
 
     // Etiqueta filtros
-    let filters_label = Label::new(Some("FILTROS"));
+    let filters_label = Label::new(Some(&i18n::t(idioma, "app.filtros")));
     filters_label.add_css_class("caption-heading");
     filters_label.set_halign(gtk4::Align::Start);
     filters_label.set_margin_start(16);
@@ -70,7 +84,7 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
     // Filtros como ActionRow clicables
     for filtro in FiltroNotas::todos() {
         let row = libadwaita::ActionRow::new();
-        row.set_title(filtro.label());
+        row.set_title(&filtro.label(idioma));
         row.set_icon_name(Some(filtro.icon()));
         row.set_activatable(true);
 
@@ -95,7 +109,6 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
             row.connect_activated(move |_| {
                 let mut s = st.lock().unwrap();
                 s.filtro = filtro;
-                println!("[agenda] filtro: {}", filtro.label());
             });
         }
 
@@ -105,7 +118,7 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
     // Separador + etiqueta de notas
     sidebar.append(&gtk4::Separator::new(Orientation::Horizontal));
 
-    let notes_header = Label::new(Some("NOTAS"));
+    let notes_header = Label::new(Some(&i18n::t(idioma, "app.notas")));
     notes_header.add_css_class("caption-heading");
     notes_header.set_halign(gtk4::Align::Start);
     notes_header.set_margin_start(16);
@@ -137,13 +150,11 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
                 return;
             }
             let Ok(id) = uuid::Uuid::parse_str(&name) else { return };
-            println!("[agenda] click en fila (row_activated): {id}");
             abrir_nota(&st, &vs, id);
         });
     }
 
-    // Refresco de lista: SOLO reconstruye cuando los datos cambian de verdad,
-    // evitando destruir filas mientras el usuario hace clic.
+    // Refresco de lista
     {
         let st = Arc::clone(&state);
         let list_c = notes_list.clone();
@@ -159,36 +170,34 @@ pub fn create_sidebar(state: Arc<Mutex<AppState>>, view_stack: ViewStack) -> Gtk
         });
     }
 
-    // Primera construcción inmediata
     rebuild_notes_list(&notes_list, &state, &view_stack);
 
-    // Separador + ajustes
+    // Separador + botón Opciones (mueve el idioma y "iniciar minimizado"
+    // a una ventana propia para no ensuciar el sidebar).
     sidebar.append(&gtk4::Separator::new(Orientation::Horizontal));
 
-    let ajustes_row = libadwaita::ActionRow::new();
-    ajustes_row.set_title("Iniciar minimizado");
-    ajustes_row.set_subtitle("Arranca oculta en la bandeja del panel");
-    let check_min = gtk4::CheckButton::new();
-    check_min.set_active({
-        let s = state.lock().unwrap();
-        s.iniciar_minimizado
-    });
-    ajustes_row.add_suffix(&check_min);
-    ajustes_row.set_activatable(true);
+    let opciones_btn = gtk4::Button::new();
+    opciones_btn.set_label(&i18n::t(idioma, "app.opciones"));
+    opciones_btn.set_icon_name("preferences-system-symbolic");
+    opciones_btn.set_hexpand(true);
+    opciones_btn.set_margin_top(8);
+    opciones_btn.set_margin_bottom(8);
+    opciones_btn.set_margin_start(16);
+    opciones_btn.set_margin_end(16);
     {
         let st = Arc::clone(&state);
-        let chk = check_min.clone();
-        ajustes_row.connect_activated(move |_| {
-            chk.set_active(!chk.is_active());
-        });
-        check_min.connect_toggled(move |c| {
-            let mut s = st.lock().unwrap();
-            s.iniciar_minimizado = c.is_active();
-            let _ = crate::persistence::guardar_datos(&s);
-            println!("[agenda] iniciar_minimizado = {}", c.is_active());
+        let parent = parent_window.clone();
+        let cb = on_idioma_change;
+        opciones_btn.connect_clicked(move |_| {
+            let mut w = crate::ui::preferences::PreferencesDialog::default();
+            // El callback de cambio de idioma viene de MainWindow (si fue provisto);
+            // si no, sólo se actualiza el idioma en memoria y la próxima vez que se
+            // reconstruya la UI lo verá.
+            w.on_idioma_change = cb.clone();
+            w.present(&parent, Arc::clone(&st));
         });
     }
-    sidebar.append(&ajustes_row);
+    sidebar.append(&opciones_btn);
 
     sidebar
 }
@@ -201,7 +210,6 @@ fn abrir_nota(state: &Arc<Mutex<AppState>>, view_stack: &ViewStack, id: uuid::Uu
     }
     note_editor::update_editor_for_note(Arc::clone(state));
     view_stack.set_visible_child_name("editor");
-    println!("[agenda] nota abierta para editar: {id}");
 }
 
 /// Firma barata del estado de la lista: cantidad + último cambio + filtro
@@ -221,6 +229,12 @@ fn rebuild_notes_list(list: &gtk4::ListBox, state: &Arc<Mutex<AppState>>, view_s
         list.remove(&child);
     }
 
+    let idioma = i18n::idioma_actual();
+    let sin_notas = i18n::t(idioma, "app.sin_notas");
+    let sin_titulo = i18n::t(idioma, "app.sin_titulo");
+    let completada = i18n::t(idioma, "app.estado_completada");
+    let pendiente = i18n::t(idioma, "app.estado_pendiente");
+
     let notas: Vec<crate::model::Nota> = {
         let s = state.lock().unwrap();
         let mut v: Vec<_> = s.notas_filtradas().into_iter().cloned().collect();
@@ -231,7 +245,7 @@ fn rebuild_notes_list(list: &gtk4::ListBox, state: &Arc<Mutex<AppState>>, view_s
     if notas.is_empty() {
         let empty_row = gtk4::ListBoxRow::new();
         empty_row.set_sensitive(false);
-        let lbl = Label::new(Some("(sin notas)"));
+        let lbl = Label::new(Some(&sin_notas));
         lbl.add_css_class("dim-label");
         lbl.set_margin_top(8);
         lbl.set_margin_bottom(8);
@@ -242,19 +256,19 @@ fn rebuild_notes_list(list: &gtk4::ListBox, state: &Arc<Mutex<AppState>>, view_s
 
     for nota in notas {
         let row = libadwaita::ActionRow::new();
-        // El id vive en la propiedad "name" del widget; el handler central lo lee al activar
         row.set_property("name", nota.id.to_string());
         row.set_activatable(true);
 
         let titulo = if nota.titulo.is_empty() {
-            "(sin título)".to_string()
+            sin_titulo.clone()
         } else {
             nota.titulo.clone()
         };
+        let estado = if nota.completada { completada.clone() } else { pendiente.clone() };
         let mut subtitle = format!(
             "{} · {}",
             nota.actualizada.format("%d/%m %H:%M"),
-            if nota.completada { "completada" } else { "pendiente" },
+            estado,
         );
         if nota.intervalo_segundos.is_some() {
             subtitle.push_str(" · ⏰");
@@ -269,13 +283,11 @@ fn rebuild_notes_list(list: &gtk4::ListBox, state: &Arc<Mutex<AppState>>, view_s
         });
         row.add_prefix(&icon);
 
-        // Handler DIRECTO por fila: la vía más confiable de activación
         {
             let st = Arc::clone(state);
             let vs = view_stack.clone();
             let id = nota.id;
             row.connect_activated(move |_row| {
-                println!("[agenda] click en fila (ActionRow activated): {id}");
                 abrir_nota(&st, &vs, id);
             });
         }
@@ -286,9 +298,10 @@ fn rebuild_notes_list(list: &gtk4::ListBox, state: &Arc<Mutex<AppState>>, view_s
 
 /// Añade el botón Salir al final del sidebar
 pub fn append_salir_button(sidebar: &GtkBox, state: Arc<Mutex<AppState>>) {
+    let idioma = i18n::idioma_actual();
     sidebar.append(&gtk4::Separator::new(Orientation::Horizontal));
     let salir_btn = gtk4::Button::new();
-    salir_btn.set_label("Salir");
+    salir_btn.set_label(&i18n::t(idioma, "app.salir"));
     salir_btn.set_icon_name("application-exit-symbolic");
     salir_btn.set_hexpand(true);
     salir_btn.set_margin_top(8);
@@ -298,7 +311,6 @@ pub fn append_salir_button(sidebar: &GtkBox, state: Arc<Mutex<AppState>>) {
     salir_btn.add_css_class("destructive-action");
     let st = Arc::clone(&state);
     salir_btn.connect_clicked(move |_| {
-        println!("[agenda] cerrando aplicación...");
         if let Ok(s) = st.lock() {
             let _ = crate::persistence::guardar_datos(&s);
         }

@@ -4,9 +4,11 @@ use std::sync::{Arc, Mutex};
 use crate::model::AppState;
 use crate::persistence::cargar_datos;
 use crate::ui::MainWindow;
+use chrono::Datelike;
 
 mod model;
 mod persistence;
+mod i18n;
 mod notifications;
 mod tray;
 mod ui;
@@ -155,5 +157,21 @@ mod tests {
         // (simulado: la lógica de fallback ya está cubierta por el error anterior)
         let estado_vacio = AppState::default();
         assert!(estado_vacio.notas.is_empty());
+    }
+
+    #[test]
+    fn semanal_proximo_disparo() {
+        let ahora = chrono::Local::now();
+        let dias = vec![1u8]; // Lunes
+        let next = crate::model::proximo_disparo_semanal(&dias, ahora);
+        assert!(next > ahora, "el próximo disparo debe ser futuro");
+        assert_eq!(next.weekday().num_days_from_sunday(), 1);
+
+        // Múltiples días: próximo debe caer en uno de los elegidos
+        let dias_multi = vec![1u8, 3u8, 5u8]; // Lun, Mié, Vie
+        let next2 = crate::model::proximo_disparo_semanal(&dias_multi, ahora);
+        assert!(next2 > ahora);
+        let wd = next2.weekday().num_days_from_sunday();
+        assert!(wd == 1 || wd == 3 || wd == 5, "debe caer en Lun/Mié/Vie");
     }
 }

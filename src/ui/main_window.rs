@@ -3,7 +3,10 @@ use libadwaita::prelude::*;
 use gtk4::{Box as GtkBox, Orientation};
 use libadwaita::{ViewStack, ApplicationWindow as AdwApplicationWindow};
 use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 use crate::model::AppState;
+use crate::ui::preferences::OnIdiomaChange;
 use crate::persistence::cargar_datos;
 use crate::notifications::{inicializar as init_notifications, cerrar_todas_notificaciones};
 use crate::ui::{sidebar, note_editor};
@@ -23,20 +26,26 @@ impl MainWindow {
 
         let state = Arc::new(Mutex::new(cargar_datos().unwrap_or_default()));
 
+        // Sincronizar el idioma global con el valor persistido en state
+        // (español por default si el archivo no tiene el campo).
+        crate::i18n::set_idioma(state.lock().unwrap().idioma);
+
         // Páginas del stack
         let view_stack = ViewStack::new();
 
         let welcome_page = note_editor::create_welcome_page();
         view_stack.add_titled(&welcome_page, Some("welcome"), "Bienvenida");
 
-        // El editor es un contenedor vacío cuyo contenido gestiona note_editor
+        // El editor es un contenedor vacío cuyo contenido gestiona note_editor.
+        // Se guarda en un Rc<RefCell> para poder reemplazarlo al cambiar idioma.
         let editor_page = GtkBox::new(Orientation::Vertical, 0);
         editor_page.set_hexpand(true);
         editor_page.set_vexpand(true);
         view_stack.add_titled(&editor_page, Some("editor"), "Editor");
+        let editor_page_rc: Rc<RefCell<GtkBox>> = Rc::new(RefCell::new(editor_page));
 
         // Registrar el área de contenido del editor (thread_local)
-        note_editor::init_editor(editor_page);
+        note_editor::init_editor(editor_page_rc.borrow().clone());
 
         // Estado inicial: mostrar bienvenida o primera nota si hay datos
         {
@@ -49,14 +58,8 @@ impl MainWindow {
             }
         }
 
-        // Sidebar
-        let sidebar_widget = sidebar::create_sidebar(Arc::clone(&state), view_stack.clone());
-        sidebar::append_salir_button(&sidebar_widget, Arc::clone(&state));
-
         // Layout principal
         let main_box = GtkBox::new(Orientation::Horizontal, 0);
-        main_box.append(&sidebar_widget);
-        main_box.append(&view_stack);
 
         // Decoraciones de ventana: barra de título con minimizar/maximizar/cerrar
         let header_bar = libadwaita::HeaderBar::new();
@@ -67,10 +70,56 @@ impl MainWindow {
         let window = AdwApplicationWindow::builder()
             .application(app)
             .title("Remy")
-            .default_width(1000)
-            .default_height(700)
+            .default_width(900)
+            .default_height(620)
             .content(&outer)
             .build();
+
+        // Sidebar (con callback para reconstruir al cambiar idioma).
+        // La ventana padre se pasa ya construida para anclar PreferencesWindow.
+        let cb = {
+            let state_cb = Arc::clone(&state);
+            let view_stack_cb = view_stack.clone();
+            let main_box_cb = main_box.clone();
+            let parent_cb = window.clone();
+            let editor_page_cb = Rc::clone(&editor_page_rc);
+            let app_cb = app.clone();
+            Rc::new(move || {
+                eprintln!("[i18n] cambio de idioma: encolando recreación");
+                // Diferir al próximo ciclo de eventos GTK para asegurar
+                // que cualquier popover abierto termine de procesarse antes
+                // de recrear la ventana.
+                let state_idle = Arc::clone(&state_cb);
+                let view_stack_idle = view_stack_cb.clone();
+                let main_box_idle = main_box_cb.clone();
+                let parent_idle = parent_cb.clone();
+                let editor_page_idle = Rc::clone(&editor_page_cb);
+                let app_idle = app_cb.clone();
+                glib::idle_add_local_once(move || {
+                    eprintln!("[i18n] recreando MainWindow completo");
+
+                    // 1) Cerrar popovers y desconectar
+                    note_editor::destroy_all_popovers();
+
+                    // 2) Destruir la ventana actual (esto libera TODOS los
+                    //    popovers top-level y demás widgets zombi).
+                    parent_idle.destroy();
+
+                    // 3) Crear una nueva MainWindow con el idioma actualizado
+                    let new_win = MainWindow::new(&app_idle);
+                    new_win.present();
+                });
+            }) as Rc<dyn Fn()>
+        };
+        let sidebar_widget = sidebar::create_sidebar(
+            Arc::clone(&state),
+            view_stack.clone(),
+            window.clone().upcast::<gtk4::Window>(),
+            Some(cb),
+        );
+        sidebar::append_salir_button(&sidebar_widget, Arc::clone(&state));
+        main_box.append(&sidebar_widget);
+        main_box.append(&view_stack);
 
         // La X OCULTA a la bandeja (guardando); salir solo con botones Salir
         {
@@ -90,10 +139,11 @@ impl MainWindow {
                     *aviso = true;
                     drop(aviso);
                     std::thread::spawn(|| {
+                        let idioma = crate::i18n::idioma_actual();
                         let _ = notify_rust::Notification::new()
-                            .appname("Remy")
-                            .summary("Remy sigue abierta")
-                            .body("Se ocultó al área de estado del panel: usá el ícono para restaurarla o elegir Salir.")
+                            .appname(&crate::i18n::t(idioma, "tray.appname"))
+                            .summary(&crate::i18n::t(idioma, "notif.minimizado_titulo"))
+                            .body(&crate::i18n::t(idioma, "notif.minimizado_cuerpo"))
                             .timeout(notify_rust::Timeout::Milliseconds(5000))
                             .show();
                     });
@@ -158,7 +208,7 @@ impl MainWindow {
                             }
                             Some(proximo) if proximo <= ahora => {
                                 let titulo_nota = if nota.titulo.is_empty() {
-                                    "(sin título)".to_string()
+                                    crate::i18n::t(crate::i18n::idioma_actual(), "app.sin_titulo")
                                 } else {
                                     nota.titulo.clone()
                                 };
@@ -168,7 +218,13 @@ impl MainWindow {
                                     .map(str::trim)
                                     .filter(|s| !s.is_empty())
                                     .map(str::to_string)
-                                    .unwrap_or_else(|| format!("Recordatorio periódico: {}", nota.titulo));
+                                    .unwrap_or_else(|| {
+                                        crate::i18n::t_fmt(
+                                            crate::i18n::idioma_actual(),
+                                            "notif.recordatorio_periodico",
+                                            &nota.titulo,
+                                        )
+                                    });
                                 disparos.push((id, titulo_nota, cuerpo));
                                 // Reprograma SIEMPRE, aunque la app estuviera cerrada
                                 nota.proximo_recordatorio = Some(ahora + delta);
@@ -186,9 +242,52 @@ impl MainWindow {
                                 .map(str::trim)
                                 .filter(|s| !s.is_empty())
                                 .map(str::to_string)
-                                .unwrap_or_else(|| format!("Recordatorio: {}", nota.titulo));
+                                .unwrap_or_else(|| {
+                                    crate::i18n::t_fmt(
+                                        crate::i18n::idioma_actual(),
+                                        "notif.recordatorio",
+                                        &nota.titulo,
+                                    )
+                                });
                             disparos.push((id, nota.titulo.clone(), cuerpo));
                             nota.recordatorio = None; // one-shot: se consume
+                        }
+                    }
+
+                    // 3. Recordatorio semanal (días de la semana)
+                    if let Some(dias) = nota.dias_semana.clone() {
+                        if !dias.is_empty() {
+                            if nota.proximo_recordatorio_semanal.is_none() {
+                                nota.proximo_recordatorio_semanal = Some(
+                                    crate::model::proximo_disparo_semanal(&dias, ahora),
+                                );
+                            }
+                            if let Some(proximo) = nota.proximo_recordatorio_semanal {
+                                if proximo <= ahora {
+                                    let titulo_nota = if nota.titulo.is_empty() {
+                                        crate::i18n::t(crate::i18n::idioma_actual(), "app.sin_titulo")
+                                    } else {
+                                        nota.titulo.clone()
+                                    };
+                                    let cuerpo = nota
+                                        .recordatorio_mensaje
+                                        .as_deref()
+                                        .map(str::trim)
+                                        .filter(|s| !s.is_empty())
+                                        .map(str::to_string)
+                                        .unwrap_or_else(|| {
+                                            crate::i18n::t_fmt(
+                                                crate::i18n::idioma_actual(),
+                                                "notif.recordatorio_semanal",
+                                                &nota.titulo,
+                                            )
+                                        });
+                                    disparos.push((id, titulo_nota, cuerpo));
+                                    nota.proximo_recordatorio_semanal = Some(
+                                        crate::model::proximo_disparo_semanal(&dias, ahora),
+                                    );
+                                }
+                            }
                         }
                     }
                 }

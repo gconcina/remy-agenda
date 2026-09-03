@@ -11,6 +11,9 @@ environment with GTK4
 
 ![stack](https://img.shields.io/badge/Rust-1.75%2B-orange) ![gui](https://img.shields.io/badge/UI-GTK4%20%2B%20libadwaita-blue)
 
+> **Now Remy supports English and Spanish translations.** Switch between
+> languages from **Preferences → Language** — the change applies instantly.
+
 ## Features
 
 - 📝 Notes with title, free-form content and an interactive checklist

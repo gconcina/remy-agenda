@@ -5,22 +5,38 @@
 // GTK no son Send, así que guardamos el puntero de un clon con vida útil de
 // la aplicación (leaked) y lo usamos SOLO desde MainContext::invoke,
 // que ejecuta en el hilo principal de GTK.
+use crate::i18n;
 use crate::model::AppState;
 use gtk4::prelude::*;
 use ksni::menu::{MenuItem, StandardItem};
 use ksni::Tray;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 static WIN_PTR: Mutex<Option<usize>> = Mutex::new(None);
 static APP_STATE: Mutex<Option<Arc<Mutex<AppState>>>> = Mutex::new(None);
+static TRAY_INICIALIZADO: AtomicBool = AtomicBool::new(false);
 
 /// Registra ventana y estado; lanza el servicio de bandeja en su propio hilo.
+///
+/// Idempotente: si ya se inicializó (típicamente porque `MainWindow::new` se
+/// llamó otra vez tras un cambio de idioma), no vuelve a registrar el tray
+/// ni a crear un nuevo hilo dbus — sólo actualiza el puntero a la ventana
+/// actual (liberando el anterior para evitar leaks).
 pub fn iniciar(win: &libadwaita::ApplicationWindow, state: Arc<Mutex<AppState>>) {
-    // Clon fuerte filtrado a propósito: vive mientras viva la app.
-    let owned = win.clone();
+    let new_ptr = Box::into_raw(Box::new(win.clone())) as usize;
     {
-        *WIN_PTR.lock().unwrap() = Some(Box::into_raw(Box::new(owned)) as usize);
+        let mut win_slot = WIN_PTR.lock().unwrap();
+        if let Some(old) = *win_slot {
+            // Liberar la referencia anterior (no usar desde ya nadie).
+            unsafe { drop(Box::from_raw(old as *mut libadwaita::ApplicationWindow)); }
+        }
+        *win_slot = Some(new_ptr);
         *APP_STATE.lock().unwrap() = Some(state);
+    }
+
+    if TRAY_INICIALIZADO.swap(true, Ordering::SeqCst) {
+        return;
     }
 
     std::thread::spawn(move || {
@@ -76,7 +92,6 @@ impl Tray for AgendaTray {
     }
 
     fn icon_name(&self) -> String {
-        // Sin nombre de tema: usamos nuestro pixmap propio (bombilla)
         String::new()
     }
 
@@ -94,16 +109,13 @@ impl Tray for AgendaTray {
 
                 let (a, r, g, b);
                 if d2 <= 49 {
-                    // Vidrio de la bombilla (blanco)
                     let hx = x - 9;
                     let hy = y - 7;
                     if hx * hx + hy * hy <= 4 {
-                        // Brillo superior-izquierdo
                         (a, r, g, b) = (255, 255, 255, 255);
                     } else if ((x == 10 || x == 14) && (11..=14).contains(&y))
                         || (y == 11 && (10..=14).contains(&x))
                     {
-                        // Filamento
                         (a, r, g, b) = (255, 165, 165, 170);
                     } else {
                         (a, r, g, b) = (255, 235, 235, 235);
@@ -113,10 +125,8 @@ impl Tray for AgendaTray {
                     || (y == 20 && (10..=14).contains(&x))
                     || (y == 21 && (11..=13).contains(&x))
                 {
-                    // Rosca metálica
                     (a, r, g, b) = (255, 185, 185, 190);
                 } else {
-                    // Transparente
                     (a, r, g, b) = (0, 0, 0, 0);
                 }
 
@@ -135,14 +145,14 @@ impl Tray for AgendaTray {
     }
 
     fn title(&self) -> String {
-        "Remy".into()
+        i18n::t(i18n::idioma_actual(), "tray.title")
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
         ksni::ToolTip {
             icon_name: String::new(),
-            title: "Remy".into(),
-            description: "Agenda con checklist y recordatorios".into(),
+            title: i18n::t(i18n::idioma_actual(), "tray.title"),
+            description: i18n::t(i18n::idioma_actual(), "tray.tooltip_desc"),
             ..Default::default()
         }
     }
@@ -155,13 +165,13 @@ impl Tray for AgendaTray {
     fn menu(&self) -> Vec<MenuItem<Self>> {
         vec![
             MenuItem::Standard(StandardItem {
-                label: "Abrir Remy".into(),
+                label: i18n::t(i18n::idioma_actual(), "tray.abrir"),
                 activate: Box::new(|_| mostrar_ventana()),
                 ..Default::default()
             }),
             MenuItem::Separator,
             MenuItem::Standard(StandardItem {
-                label: "Salir".into(),
+                label: i18n::t(i18n::idioma_actual(), "tray.salir"),
                 activate: Box::new(|_| salir_app()),
                 ..Default::default()
             }),
